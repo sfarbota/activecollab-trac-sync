@@ -22,24 +22,28 @@ namespace ActiveCollabTracSync
         {
             Client.url = "https://app.activecollab.com/" + ConfigurationManager.AppSettings["ActiveCollabCloudInstanceID"];
             Client.key = ConfigurationManager.AppSettings["ActiveCollabApiKey"];
-            
-            var projectName = ConfigurationManager.AppSettings["ActiveCollabProjectName"];
+
+            var project = ProjectDA.Get(ConfigurationManager.AppSettings["ActiveCollabProjectName"]);
             var groupingField = ConfigurationManager.AppSettings["TracFieldForActiveCollabTaskGrouping"];
             var maxAttempts = GetMaxAttempts();
 
             if (args.Length > 0)
             {
                 // If a ticket ID is given, only sync that ticket.
-                SyncTicket(TicketDA.Get(args[0], groupingField), ProjectDA.Get(projectName));
+                SyncTicket(TicketDA.Get(args[0], groupingField), project);
             }
             else
             {
-                Console.WriteLine("\nSynchronizing all open tickets in Trac to ActiveCollab...\n");
-                SyncTickets(TicketDA.GetAllOpen(groupingField), ProjectDA.Get(projectName));
+                Console.WriteLine("\nSynchronizing all open tickets in Trac to Active Collab...\n");
 
-                // Get list of Trac tickets that have open tasks in ActiveCollab
-                // in case some tickets in Trac were closed since the last sync.
-                var activeCollabProjectTasks = ProjectDA.GetTasks(ProjectDA.Get(projectName).Id);
+                var openTracTickets = TicketDA.GetAllOpen(groupingField);
+                SyncTickets(openTracTickets, project);
+
+                Console.WriteLine("\nSynchronizing tickets with open tasks in Active Collab"
+                        + " but no open ticket in Trac...\n");
+
+                // Get list of all tickets with open tasks in the Active Collab project.
+                var activeCollabProjectTasks = ProjectDA.GetTasks(project.Id);
                 var tracTicketIdsFromActiveCollabTasks = new List<string>();
                 foreach (var curTask in activeCollabProjectTasks)
                 {
@@ -80,8 +84,13 @@ namespace ActiveCollabTracSync
                     }
                 }
 
-                Console.WriteLine("\nSynchronizing list of tickets retrieved from ActiveCollab...\n");
-                SyncTickets(TicketDA.GetFromList(tracTicketIdsFromActiveCollabTasks, groupingField), ProjectDA.Get(projectName));
+                // Remove tickets that have already been synchronized from the list.
+                tracTicketIdsFromActiveCollabTasks.RemoveAll(
+                        ticketId => openTracTickets.Select(
+                            ticket => ticket.Id
+                        ).Contains(ticketId));
+
+                SyncTickets(TicketDA.GetFromList(tracTicketIdsFromActiveCollabTasks, groupingField), project);
             }
         }
 
@@ -132,7 +141,7 @@ namespace ActiveCollabTracSync
 
             foreach (var tracTicket in tracTickets)
             {
-                UpdateTicket(tracTicket, activeCollabProject, users, 
+                UpdateTicket(tracTicket, activeCollabProject, users,
                         activeCollabProjectTaskLists, activeCollabProjectTasks);
             }
         }
@@ -156,7 +165,7 @@ namespace ActiveCollabTracSync
             var newActiveCollabTaskDescription = tracTicket.Description;
             var newActiveCollabTaskIsCompleted = tracTicket.Status == "closed";
             var newActiveCollabTaskLabels = new List<string>();
-            
+
             newActiveCollabTaskLabels.Add(tracTicket.Status.ToUpper());
             newActiveCollabTaskLabels.Add(tracTicket.Type.ToUpper());
 
