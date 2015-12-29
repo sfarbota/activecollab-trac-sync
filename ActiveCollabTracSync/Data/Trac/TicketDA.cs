@@ -82,25 +82,32 @@ namespace ActiveCollabTracSync.Data.Trac
         /// <returns></returns>
         public static List<Ticket> GetFromList(List<string> ticketIdList, string groupingField = "")
         {
-            // Get Trac tickets from list without a custom field.
-            var sql =   "SELECT t.id, t.summary, t.description, t.owner, t.status, t.type" +
-                            " FROM ticket t" +
-                            " WHERE t.id IN (" + String.Join(",", ticketIdList) + ")" +
-                            " ORDER BY t.id;";
-
-            if (!Enum.IsDefined(typeof(TicketGroupingOption), groupingField) && !string.IsNullOrEmpty(groupingField))
+            if (ticketIdList.Count > 0)
             {
-                // Assume groupingField is a custom Trac ticket field and should be used for grouping in ActiveCollab.
-                sql =   "SELECT t.id, t.summary, t.description, t.owner, t.status, t.type, tc.value AS 'group'" +
-                            " FROM ticket t" +
-                                " LEFT JOIN ticket_custom tc" +
-                                    " ON t.id = tc.ticket" +
-                                        " AND tc.name = @groupingField" +
-                            " WHERE t.id IN (" + String.Join(",", ticketIdList) + ")" +
-                            " ORDER BY t.id;";
-            }
+                // Get Trac tickets from list without a custom field.
+                var sql =   "SELECT t.id, t.summary, t.description, t.owner, t.status, t.type" +
+                                " FROM ticket t" +
+                                " WHERE t.id IN (" + String.Join(",", ticketIdList) + ")" +
+                                " ORDER BY t.id;";
 
-            return GetTicketsFromDatabase(sql, groupingField);
+                if (!Enum.IsDefined(typeof(TicketGroupingOption), groupingField) && !string.IsNullOrEmpty(groupingField))
+                {
+                    // Assume groupingField is a custom Trac ticket field and should be used for grouping in Active Collab.
+                    sql =   "SELECT t.id, t.summary, t.description, t.owner, t.status, t.type, tc.value AS 'group'" +
+                                " FROM ticket t" +
+                                    " LEFT JOIN ticket_custom tc" +
+                                        " ON t.id = tc.ticket" +
+                                            " AND tc.name = @groupingField" +
+                                " WHERE t.id IN (" + String.Join(",", ticketIdList) + ")" +
+                                " ORDER BY t.id;";
+                }
+
+                return GetTicketsFromDatabase(sql, groupingField);
+            }
+            else
+            {
+                return new List<Ticket>();
+            }
         }
 
         /// <summary>Gets the tickets from database.</summary>
