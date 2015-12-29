@@ -25,6 +25,7 @@ namespace ActiveCollabTracSync
             
             var projectName = ConfigurationManager.AppSettings["ActiveCollabProjectName"];
             var groupingField = ConfigurationManager.AppSettings["TracFieldForActiveCollabTaskGrouping"];
+            var maxAttempts = GetMaxAttempts();
 
             if (args.Length > 0)
             {
@@ -46,7 +47,32 @@ namespace ActiveCollabTracSync
 
                     if (curTracTicketId == null)
                     {
-                        TaskDA.Complete(curTask.Id);
+                        Console.Write("Completing task for ticket #" + curTracTicketId + "...");
+
+                        var completeAttemptCount = 0;
+                        var completeAttemptSucceeded = false;
+
+                        while (!completeAttemptSucceeded)
+                        {
+                            try
+                            {
+                                TaskDA.Complete(curTask.Id);
+                                Console.WriteLine("Complete!");
+                                completeAttemptSucceeded = true;
+                            }
+                            catch
+                            {
+                                if (completeAttemptCount < maxAttempts)
+                                {
+                                    completeAttemptCount++;
+                                    Console.Write("Attempt " + completeAttemptCount + " failed...");
+                                }
+                                else
+                                {
+                                    throw;
+                                }
+                            }
+                        }
                     }
                     else
                     {
@@ -118,17 +144,18 @@ namespace ActiveCollabTracSync
         /// <param name="activeCollabProjectTaskLists">The Active Collab project task lists.</param>
         /// <param name="activeCollabProjectTasks">The Active Collab project tasks.</param>
         private static void UpdateTicket(Ticket tracTicket, Project activeCollabProject,
-        Dictionary<string, object> users,
-        List<TaskList> activeCollabProjectTaskLists,
+        Dictionary<string, object> users, List<TaskList> activeCollabProjectTaskLists,
         List<Task> activeCollabProjectTasks)
         {
             Console.Write("Synchronizing ticket #" + tracTicket.Id + "...");
+
+            string[] includedUserEmails = ConfigurationManager.AppSettings["IncludedUserEmails"].Split(',');
+            var maxAttempts = GetMaxAttempts();
 
             var newActiveCollabTaskName = tracTicket.Id + "-" + tracTicket.Summary;
             var newActiveCollabTaskDescription = tracTicket.Description;
             var newActiveCollabTaskIsCompleted = tracTicket.Status == "closed";
             var newActiveCollabTaskLabels = new List<string>();
-            string[] includedUserEmails = ConfigurationManager.AppSettings["IncludedUserEmails"].Split(',');
             
             newActiveCollabTaskLabels.Add(tracTicket.Status.ToUpper());
             newActiveCollabTaskLabels.Add(tracTicket.Type.ToUpper());
@@ -170,21 +197,77 @@ namespace ActiveCollabTracSync
                 if (GetTracTicketIdFromActiveCollabTaskName(curActiveCollabProjectTask.Name)
                         == tracTicket.Id)
                 {
-                    TaskDA.Update(curActiveCollabProjectTask.Id, newActiveCollabTaskName,
-                            newActiveCollabTaskDescription, activeCollabProject.Id,
-                            newActiveCollabTaskIsCompleted, taskListId, assigneeId,
-                            newActiveCollabTaskLabels);
+                    var updateAttemptCount = 0;
+                    var updateAttemptSucceeded = false;
 
-                    Console.WriteLine("Complete!");
+                    while (!updateAttemptSucceeded)
+                    {
+                        try
+                        {
+                            TaskDA.Update(curActiveCollabProjectTask.Id, newActiveCollabTaskName,
+                                    newActiveCollabTaskDescription, activeCollabProject.Id,
+                                    newActiveCollabTaskIsCompleted, taskListId, assigneeId,
+                                    newActiveCollabTaskLabels);
+                            Console.WriteLine("Complete!");
+                            updateAttemptSucceeded = true;
+                        }
+                        catch
+                        {
+                            if (updateAttemptCount < maxAttempts)
+                            {
+                                updateAttemptCount++;
+                                Console.Write("Attempt " + updateAttemptCount + " failed...");
+                            }
+                            else
+                            {
+                                throw;
+                            }
+                        }
+                    }
+
                     return;
                 }
             }
 
-            TaskDA.Create(newActiveCollabTaskName, newActiveCollabTaskDescription,
-                    activeCollabProject.Id, newActiveCollabTaskIsCompleted, taskListId,
-                    assigneeId, newActiveCollabTaskLabels);
+            var createAttemptCount = 0;
+            var createAttemptSucceeded = false;
 
-            Console.WriteLine("Complete!");
+            while (!createAttemptSucceeded)
+            {
+                try
+                {
+                    TaskDA.Create(newActiveCollabTaskName, newActiveCollabTaskDescription,
+                            activeCollabProject.Id, newActiveCollabTaskIsCompleted, taskListId,
+                            assigneeId, newActiveCollabTaskLabels);
+                    Console.WriteLine("Complete!");
+                    createAttemptSucceeded = true;
+                }
+                catch
+                {
+                    if (createAttemptCount < maxAttempts)
+                    {
+                        createAttemptCount++;
+                        Console.Write("Attempt " + createAttemptCount + " failed...");
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+            }
+        }
+
+        private static int GetMaxAttempts()
+        {
+            int maxAttempts;
+
+            if (!int.TryParse(ConfigurationManager.AppSettings["MaxAttempts"], out maxAttempts)
+                    || maxAttempts <= 0)
+            {
+                maxAttempts = 1;
+            }
+
+            return maxAttempts;
         }
     }
 }
