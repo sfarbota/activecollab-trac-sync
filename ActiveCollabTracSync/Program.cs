@@ -20,7 +20,7 @@ namespace ActiveCollabTracSync
         /// <param name="args">The arguments.</param>
         public static void Main(string[] args)
         {
-            Client.url = "https://app.activecollab.com/" + ConfigurationManager.AppSettings["ActiveCollabApiUrl"];
+            Client.url = "https://app.activecollab.com/" + ConfigurationManager.AppSettings["ActiveCollabCloudInstanceID"];
             Client.key = ConfigurationManager.AppSettings["ActiveCollabApiKey"];
             
             var projectName = ConfigurationManager.AppSettings["ActiveCollabProjectName"];
