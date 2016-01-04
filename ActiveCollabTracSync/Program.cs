@@ -23,9 +23,36 @@ namespace ActiveCollabTracSync
             Client.url = "https://app.activecollab.com/" + ConfigurationManager.AppSettings["ActiveCollabCloudInstanceID"];
             Client.key = ConfigurationManager.AppSettings["ActiveCollabApiKey"];
 
-            var project = ProjectDA.Get(ConfigurationManager.AppSettings["ActiveCollabProjectName"]);
             var groupingField = ConfigurationManager.AppSettings["TracFieldForActiveCollabTaskGrouping"];
             var maxAttempts = GetMaxAttempts();
+
+            Console.Write("Getting name of Active Collab project...");
+
+            Project project = null;
+            var getProjectNameAttemptCount = 0;
+            var getProjectNameAttemptSucceeded = false;
+
+            while (!getProjectNameAttemptSucceeded)
+            {
+                try
+                {
+                    project = ProjectDA.Get(ConfigurationManager.AppSettings["ActiveCollabProjectName"]);
+                    Console.WriteLine("Complete!");
+                    getProjectNameAttemptSucceeded = true;
+                }
+                catch
+                {
+                    if (getProjectNameAttemptCount < maxAttempts)
+                    {
+                        getProjectNameAttemptCount++;
+                        Console.Write("Attempt " + getProjectNameAttemptCount + " failed...");
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+            }
 
             if (args.Length > 0)
             {
@@ -42,8 +69,35 @@ namespace ActiveCollabTracSync
                 Console.WriteLine("\nSynchronizing tickets with open tasks in Active Collab"
                         + " but no open ticket in Trac...\n");
 
-                // Get list of all tickets with open tasks in the Active Collab project.
-                var activeCollabProjectTasks = ProjectDA.GetTasks(project.Id);
+
+                Console.Write("\nGetting list of all tickets with open tasks in the Active Collab project...");
+
+                var getTasksAttemptCount = 0;
+                var getTasksAttemptSucceeded = false;
+                List<Task> activeCollabProjectTasks = null;
+
+                while (!getTasksAttemptSucceeded)
+                {
+                    try
+                    {
+                        activeCollabProjectTasks = ProjectDA.GetTasks(project.Id);
+                        Console.WriteLine("Complete!");
+                        getTasksAttemptSucceeded = true;
+                    }
+                    catch
+                    {
+                        if (getTasksAttemptCount < maxAttempts)
+                        {
+                            getTasksAttemptCount++;
+                            Console.Write("Attempt " + getTasksAttemptCount + " failed...");
+                        }
+                        else
+                        {
+                            throw;
+                        }
+                    }
+                }
+
                 var tracTicketIdsFromActiveCollabTasks = new List<string>();
                 foreach (var curTask in activeCollabProjectTasks)
                 {
@@ -84,13 +138,18 @@ namespace ActiveCollabTracSync
                     }
                 }
 
-                // Remove tickets that have already been synchronized from the list.
+                Console.Write("\nRemoving tickets that have already been synchronized from the list...");
+
                 tracTicketIdsFromActiveCollabTasks.RemoveAll(
                         ticketId => openTracTickets.Select(
                             ticket => ticket.Id
                         ).Contains(ticketId));
 
+                Console.WriteLine("Complete!");
+
                 SyncTickets(TicketDA.GetFromList(tracTicketIdsFromActiveCollabTasks, groupingField), project);
+
+                Console.WriteLine("\nSync process complete!");
             }
         }
 
@@ -266,6 +325,8 @@ namespace ActiveCollabTracSync
             }
         }
 
+        /// <summary>Gets the maximum attempts.</summary>
+        /// <returns></returns>
         private static int GetMaxAttempts()
         {
             int maxAttempts;
