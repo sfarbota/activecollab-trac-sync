@@ -24,9 +24,10 @@ namespace ActiveCollabTracSync
             Client.key = ConfigurationManager.AppSettings["ActiveCollabApiKey"];
 
             var groupingField = ConfigurationManager.AppSettings["TracFieldForActiveCollabTaskGrouping"];
+            var projectName = ConfigurationManager.AppSettings["ActiveCollabProjectName"];
             var maxAttempts = GetMaxAttempts();
 
-            Console.Write("Getting name of Active Collab project...");
+            Console.Write("Getting data for Active Collab project \"" + projectName + "\"...");
 
             Project project = null;
             var getProjectNameAttemptCount = 0;
@@ -36,7 +37,7 @@ namespace ActiveCollabTracSync
             {
                 try
                 {
-                    project = ProjectDA.Get(ConfigurationManager.AppSettings["ActiveCollabProjectName"]);
+                    project = ProjectDA.Get(projectName);
                     Console.WriteLine("Complete!");
                     getProjectNameAttemptSucceeded = true;
                 }
@@ -70,7 +71,7 @@ namespace ActiveCollabTracSync
                         + " but no open ticket in Trac...\n");
 
 
-                Console.Write("\nGetting list of all tickets with open tasks in the Active Collab project...");
+                Console.Write("Getting list of all tickets with open tasks in the Active Collab project...");
 
                 var getTasksAttemptCount = 0;
                 var getTasksAttemptSucceeded = false;
